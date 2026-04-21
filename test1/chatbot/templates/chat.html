@@ -7,6 +7,91 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'chat.css' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .user-info {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-info span {
+            font-weight: 500;
+            color: #333;
+        }
+        .logout-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+        .sessions-list {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .sessions-list h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .session-item:hover {
+            background: #f5f5f5;
+        }
+        .session-item.active {
+            background: #e3f2fd;
+        }
+        .session-item a {
+            text-decoration: none;
+            color: #333;
+            flex-grow: 1;
+        }
+        .session-delete {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.25rem;
+        }
+        .session-delete:hover {
+            color: #f44336;
+        }
+        .new-session-form {
+            padding: 1rem;
+        }
+        .new-session-form input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+        .new-session-form button {
+            width: 100%;
+            padding: 0.5rem;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -18,6 +103,37 @@
             </div>
             
             <div class="sidebar-content">
+                <!-- Информация о пользователе -->
+                <div class="user-info">
+                    <span>👤 {{ user.username }}</span>
+                    <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-btn">Выйти</button>
+                    </form>
+                </div>
+
+                <!-- Список сессий -->
+                <div class="sessions-list">
+                    <h3>📁 История чатов</h3>
+                    {% for session in sessions %}
+                    <div class="session-item {% if current_session_id == session.id|stringformat:"s" %}active{% endif %}">
+                        <a href="?session_id={{ session.id }}">{{ session.session_name|truncatechars:25 }}</a>
+                        <button class="session-delete" onclick="deleteSession('{{ session.id }}', event)">×</button>
+                    </div>
+                    {% empty %}
+                    <p style="color:#999;font-size:0.9rem;">Нет активных чатов</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Форма создания новой сессии -->
+                <div class="new-session-form">
+                    <form action="{% url 'create_session' %}" method="post">
+                        {% csrf_token %}
+                        <input type="text" name="session_name" placeholder="Название нового чата" value="Новый чат">
+                        <button type="submit">➕ Новый чат</button>
+                    </form>
+                </div>
+                
                 <div class="connection-status" id="connectionStatus">
                     <span class="status-dot"></span>
                     <span class="status-text">Подключение...</span>
@@ -96,9 +212,64 @@
     </div>
 
     <script>
-        const sessionId = 'session_' + Date.now();
+        // Получаем текущий session_id из URL или создаем новый
+        let currentSessionId = "{{ current_session_id|default:'' }}";
         let showSql = false;
         let isProcessing = false;
+
+        // Загрузка истории сессии при старте
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConnection();
+            if (currentSessionId) {
+                loadSessionHistory(currentSessionId);
+            } else {
+                document.getElementById('messageInput').focus();
+            }
+        });
+
+        // Загрузка истории сессии
+        async function loadSessionHistory(sessionId) {
+            try {
+                const response = await fetch(`/session/${sessionId}/history/`);
+                const data = await response.json();
+                
+                if (data.history && data.history.length > 0) {
+                    const messagesEl = document.getElementById('messages');
+                    messagesEl.innerHTML = '';
+                    
+                    data.history.forEach(msg => {
+                        if (msg.role === 'user') {
+                            addUserMessage(msg.content, false);
+                        } else if (msg.role === 'assistant') {
+                            addBotMessage(msg.content, null, null, false);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки истории:', e);
+            }
+        }
+
+        // Удаление сессии
+        async function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            if (!confirm('Удалить этот чат?')) return;
+            
+            try {
+                const response = await fetch(`/session/${sessionId}/delete/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                }
+            } catch (e) {
+                console.error('Ошибка удаления сессии:', e);
+            }
+        }
 
         // Проверка подключения
         async function checkConnection() {
@@ -157,7 +328,7 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        session_id: sessionId
+                        session_id: currentSessionId || null
                     })
                 });
                 
@@ -165,6 +336,12 @@
                 
                 // Удаляем индикатор загрузки
                 loadingMsg.remove();
+                
+                // Обновляем session_id если это новая сессия
+                if (data.session_id && !currentSessionId) {
+                    currentSessionId = data.session_id;
+                    history.pushState({}, '', `?session_id=${currentSessionId}`);
+                }
                 
                 if (data.error) {
                     addBotMessage(`❌ ${data.error}`, data.sql);
@@ -183,7 +360,7 @@
         }
 
         // Добавить сообщение пользователя
-        function addUserMessage(text) {
+        function addUserMessage(text, scroll = true) {
             const messagesEl = document.getElementById('messages');
             const msgEl = document.createElement('div');
             msgEl.className = 'message user-message';
@@ -194,11 +371,11 @@
                 <div class="message-avatar">👤</div>
             `;
             messagesEl.appendChild(msgEl);
-            scrollToBottom();
+            if (scroll) scrollToBottom();
         }
 
         // Добавить сообщение бота
-        function addBotMessage(text, sql = null, data = null) {
+        function addBotMessage(text, sql = null, data = null, scroll = true) {
             const messagesEl = document.getElementById('messages');
             const msgEl = document.createElement('div');
             msgEl.className = 'message bot-message';
@@ -225,7 +402,7 @@
             html += `</div>`;
             msgEl.innerHTML = html;
             messagesEl.appendChild(msgEl);
-            scrollToBottom();
+            if (scroll) scrollToBottom();
         }
 
         // Индикатор загрузки
@@ -317,7 +494,9 @@
 
         // Сбросить чат
         async function resetChat() {
-            if (confirm('Начать новый чат? История будет удалена.')) {
+            if (confirm('Начать новый чат? Текущая сессия будет сохранена в истории.')) {
+                currentSessionId = null;
+                history.pushState({}, '', window.location.pathname);
                 document.getElementById('messages').innerHTML = `
                     <div class="message bot-message">
                         <div class="message-avatar">🤖</div>
@@ -326,16 +505,7 @@
                         </div>
                     </div>
                 `;
-                
-                try {
-                    await fetch('/api/reset/', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({session_id: sessionId})
-                    });
-                } catch (e) {
-                    console.error('Failed to reset session:', e);
-                }
+                document.getElementById('messageInput').focus();
             }
         }
 
@@ -366,12 +536,6 @@
             }
             return cookieValue;
         }
-
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            checkConnection();
-            document.getElementById('messageInput').focus();
-        });
 
         // Enter для отправки
         document.getElementById('messageInput').addEventListener('keydown', function(e) {
