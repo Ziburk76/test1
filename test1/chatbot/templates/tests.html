@@ -232,9 +232,51 @@
         let isRunning = false;
         let shouldStop = false;
         let currentFilter = 'all';
-        let sessionId = 'test_session_' + Date.now();
+        let sessionId = null; // Будет создан реальный UUID сессии
 
-        function init() {
+        async function createTestSession() {
+            // Создаем реальную сессию в БД для тестов
+            const formData = new FormData();
+            formData.append('session_name', 'Test Session');
+            try {
+                const response = await fetch('/session/create/', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                if (response.ok) {
+                    // Перенаправляемся на чат, где будет новая сессия, но для тестов нам нужно просто получить ID
+                    // Поэтому используем прямой API подход ниже
+                }
+            } catch (e) {
+                console.error('Ошибка создания сессии:', e);
+            }
+        }
+
+        async function init() {
+            // Сначала создаем сессию через API чата, чтобы получить реальный UUID
+            try {
+                const initResponse = await fetch('/api/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ message: 'Инициализация тестовой сессии', session_id: null })
+                });
+                if (initResponse.ok) {
+                    const data = await initResponse.json();
+                    sessionId = data.session_id;
+                } else {
+                    console.error('Не удалось создать сессию для тестов');
+                    sessionId = '00000000-0000-0000-0000-000000000000'; // Заглушка
+                }
+            } catch (e) {
+                console.error('Ошибка инициализации:', e);
+                sessionId = '00000000-0000-0000-0000-000000000000';
+            }
+            
             testResults = TESTS.map((test, i) => ({
                 ...test,
                 index: i,
@@ -558,6 +600,22 @@
             h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             h = h.replace(/\n/g, '<br>');
             return h;
+        }
+        
+        // Получить CSRF cookie
+        function getCsrfToken() {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith('csrftoken=')) {
+                        cookieValue = decodeURIComponent(cookie.substring('csrftoken'.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
 
         init();
