@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(django-admin *)",
+      "Bash(timeout *)",
+      "Bash(findstr *)",
+      "Bash(tasklist)",
+      "Bash(python *)"
+    ]
+  },
+  "$version": 3
+}

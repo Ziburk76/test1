@@ -1,0 +1,9 @@
+Question: Какие станки есть на заводе
+Lower: какие станки есть на заводе
+"станок" in ql: False
+"станк" in ql: True
+"станки" in ql: True
+MATCHED: "станк"
+MATCHED: "станки"
+Tables: []
+Keywords: []

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автотесты — ИИ-ассистент завода</title>
+    {% load static %}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white; padding: 24px; border-radius: 16px; margin-bottom: 24px;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header p { color: #a0a0b0; font-size: 14px; }
+
+        .controls { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .btn {
+            padding: 12px 24px; border: none; border-radius: 10px; font-size: 14px;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background: #d1d5db; }
+
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white; border-radius: 12px; padding: 20px; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .stat-card .stat-value { font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+        .stat-card .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-total .stat-value { color: #6366f1; }
+        .stat-passed .stat-value { color: #22c55e; }
+        .stat-failed .stat-value { color: #ef4444; }
+        .stat-pending .stat-value { color: #f59e0b; }
+        .stat-percent .stat-value { color: #8b5cf6; font-size: 28px; }
+
+        .progress-container {
+            background: white; border-radius: 12px; padding: 16px; margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .progress-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #6b7280; }
+        .progress-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #22c55e); transition: width 0.3s; border-radius: 4px; }
+
+        .filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 8px 16px; border: 2px solid #e5e7eb; border-radius: 8px;
+            background: white; font-size: 13px; cursor: pointer; transition: all 0.2s;
+        }
+        .filter-btn.active { border-color: #6366f1; background: #eef2ff; color: #6366f1; font-weight: 600; }
+
+        .results-list { display: flex; flex-direction: column; gap: 12px; }
+        .test-card {
+            background: white; border-radius: 12px; border-left: 4px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; transition: all 0.3s;
+        }
+        .test-card.status-passed { border-left-color: #22c55e; }
+        .test-card.status-failed { border-left-color: #ef4444; }
+        .test-card.status-running { border-left-color: #3b82f6; animation: pulse-border 1s infinite; }
+        .test-card.status-pending { border-left-color: #f59e0b; }
+        @keyframes pulse-border {
+            0%, 100% { border-left-color: #3b82f6; }
+            50% { border-left-color: #93c5fd; }
+        }
+
+        .test-header {
+            display: flex; align-items: center; gap: 12px; padding: 16px 20px; cursor: pointer;
+        }
+        .test-header:hover { background: #f9fafb; }
+        .test-status-icon {
+            width: 32px; height: 32px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+        }
+        .status-passed .test-status-icon { background: #dcfce7; }
+        .status-failed .test-status-icon { background: #fee2e2; }
+        .status-running .test-status-icon { background: #dbeafe; }
+        .status-pending .test-status-icon { background: #fef3c7; }
+
+        .test-info { flex: 1; }
+        .test-info .test-number { font-size: 12px; color: #6b7280; }
+        .test-info .test-question { font-size: 14px; font-weight: 500; margin-top: 2px; }
+        .test-info .test-level { font-size: 11px; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+        .level-1 { background: #e0f2fe; color: #0369a1; }
+        .level-2 { background: #fef3c7; color: #92400e; }
+        .level-3 { background: #fce7f3; color: #9d174d; }
+        .level-4 { background: #f3e8ff; color: #6b21a8; }
+
+        .test-duration { font-size: 12px; color: #6b7280; white-space: nowrap; }
+
+        .test-details { display: none; padding: 0 20px 16px; border-top: 1px solid #f0f0f0; }
+        .test-card.expanded .test-details { display: block; }
+
+        .detail-section { margin-top: 12px; }
+        .detail-section h4 { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+        .sql-block {
+            background: #f8f9fa; border-radius: 8px; padding: 12px; font-size: 12px;
+            font-family: 'Fira Code', monospace; color: #0f172a; white-space: pre-wrap;
+            word-break: break-word; line-height: 1.5;
+        }
+        .sql-block.sql-match { background: #dcfce7; border: 1px solid #86efac; }
+        .sql-block.sql-mismatch { background: #fef3c7; border: 1px solid #fde68a; }
+
+        .answer-block {
+            background: #f8f9fa; border-radius: 8px; padding: 12px; font-size: 13px;
+            color: #374151; line-height: 1.6;
+        }
+
+        .validation-result {
+            display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+            border-radius: 6px; font-size: 12px; font-weight: 600;
+        }
+        .vr-passed { background: #dcfce7; color: #166534; }
+        .vr-failed { background: #fee2e2; color: #991b1b; }
+        .vr-warning { background: #fef3c7; color: #92400e; }
+
+        .overall-badge {
+            padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 700;
+        }
+        .overall-passed { background: #dcfce7; color: #166534; }
+        .overall-failed { background: #fee2e2; color: #991b1b; }
+
+        .comparison-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;
+        }
+        .comparison-col h5 { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+        .comparison-col .mini-table {
+            font-size: 11px; background: #f8f9fa; border-radius: 6px; padding: 8px;
+        }
+        .comparison-col .mini-table table { width: 100%; border-collapse: collapse; }
+        .comparison-col .mini-table th, .comparison-col .mini-table td {
+            padding: 3px 6px; text-align: left; border-bottom: 1px solid #e5e7eb;
+        }
+        .comparison-col .mini-table th { background: #f0f0f0; font-weight: 600; }
+
+        .log-container {
+            background: #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 24px;
+            max-height: 300px; overflow-y: auto;
+        }
+        .log-container h3 { color: #a0a0b0; font-size: 14px; margin-bottom: 8px; }
+        .log-entry {
+            font-family: 'Fira Code', monospace; font-size: 11px; color: #a5f3fc;
+            padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .log-entry.log-error { color: #fca5a5; }
+        .log-entry.log-success { color: #86efac; }
+        .log-entry.log-warn { color: #fde68a; }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .comparison-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Автотесты ИИ-ассистента (MDC — Оборудование)</h1>
+            <p>Семантическая валидация: сравнение результатов выполнения SQL, а не текста запросов</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn" onclick="startTests()">▶ Запустить все тесты</button>
+            <button class="btn btn-danger" id="stopBtn" onclick="stopTests()" disabled>⏹ Остановить</button>
+            <button class="btn btn-secondary" onclick="resetTests()">🔄 Сбросить</button>
+            <button class="btn btn-secondary" onclick="exportResults()">📥 Экспорт JSON</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card stat-total">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Всего</div>
+            </div>
+            <div class="stat-card stat-passed">
+                <div class="stat-value" id="statPassed">0</div>
+                <div class="stat-label">✅ Пройдено</div>
+            </div>
+            <div class="stat-card stat-failed">
+                <div class="stat-value" id="statFailed">0</div>
+                <div class="stat-label">❌ Провалено</div>
+            </div>
+            <div class="stat-card stat-pending">
+                <div class="stat-value" id="statPending">0</div>
+                <div class="stat-label">⏳ Ожидание</div>
+            </div>
+            <div class="stat-card stat-percent">
+                <div class="stat-value" id="statPercent">0%</div>
+                <div class="stat-label">Успешность</div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-header">
+                <span id="progressText">0 / 0</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">Все</button>
+            <button class="filter-btn" data-filter="passed" onclick="setFilter('passed', this)">✅ Пройдено</button>
+            <button class="filter-btn" data-filter="failed" onclick="setFilter('failed', this)">❌ Провалено</button>
+            <button class="filter-btn" data-filter="pending" onclick="setFilter('pending', this)">⏳ Ожидание</button>
+        </div>
+
+        <div class="results-list" id="resultsList"></div>
+        <div class="log-container">
+            <h3>📋 Лог выполнения</h3>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <script>
+        const TESTS = {{ tests_json|safe }};
+
+        let testResults = [];
+        let isRunning = false;
+        let shouldStop = false;
+        let currentFilter = 'all';
+        let sessionId = 'test_session_' + Date.now();
+
+        function init() {
+            testResults = TESTS.map((test, i) => ({
+                ...test,
+                index: i,
+                status: 'pending',
+                sql: null,
+                answer: null,
+                data: null,
+                duration: 0,
+                // Семантическая валидация SQL
+                sqlPassed: null,
+                sqlReason: '',
+                sqlActual: null,
+                sqlExpected: null,
+                // Валидация ответа
+                answerPassed: null,
+                answerReason: '',
+                // Итог
+                overall: null,
+                errorMessage: null
+            }));
+            renderResults();
+            updateStats();
+        }
+
+        async function startTests() {
+            isRunning = true;
+            shouldStop = false;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            addLog('🚀 Запуск автотестов (семантическая валидация)...');
+
+            for (let i = 0; i < testResults.length; i++) {
+                if (shouldStop) { addLog('⏹ Остановлено'); break; }
+
+                const test = testResults[i];
+                test.status = 'running';
+                renderTestCard(i);
+                updateStats();
+
+                const startTime = Date.now();
+                addLog(`📝 #${i + 1}: "${test.question}"`);
+
+                try {
+                    // 1. Получаем ответ от чат-бота
+                    const response = await fetch('/api/chat/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: test.question,
+                            session_id: sessionId + '_' + i
+                        })
+                    });
+                    const data = await response.json();
+                    test.duration = Date.now() - startTime;
+                    test.sql = data.sql;
+                    test.answer = data.answer;
+                    test.data = data.data;
+                    test.errorMessage = data.error;
+
+                    // 2. Семантическая валидация SQL через API
+                    if (data.sql && test.expected_sql) {
+                        const compareResp = await fetch('/api/compare/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                actual_sql: data.sql,
+                                expected_sql: test.expected_sql
+                            })
+                        });
+                        const compareData = await compareResp.json();
+                        test.sqlPassed = compareData.passed;
+                        test.sqlReason = compareData.reason;
+                        test.sqlActual = compareData.actual;
+                        test.sqlExpected = compareData.expected;
+                    } else if (!test.expected_sql) {
+                        test.sqlPassed = false;
+                        test.sqlReason = 'Нет эталонного SQL';
+                    } else {
+                        test.sqlPassed = false;
+                        test.sqlReason = 'Нет сгенерированного SQL';
+                    }
+
+                    // 3. Валидация ответа
+                    const answerCheck = validateAnswer(test, data);
+                    test.answerPassed = answerCheck.passed;
+                    test.answerReason = answerCheck.reason;
+
+                    // ИТОГ: SQL семантически совпал
+                    test.overall = test.sqlPassed;
+                    test.status = test.overall ? 'passed' : 'failed';
+
+                    if (test.overall) {
+                        addLog(`✅ #${i + 1}: ПРОЙДЕН (${test.duration}мс) — ${test.sqlReason}`, 'success');
+                    } else {
+                        addLog(`❌ #${i + 1}: ПРОВАЛЕН — SQL: ${test.sqlReason}`, 'error');
+                    }
+
+                } catch (error) {
+                    test.duration = Date.now() - startTime;
+                    test.status = 'failed';
+                    test.errorMessage = error.message;
+                    test.sqlPassed = false;
+                    test.sqlReason = 'Ошибка запроса';
+                    test.overall = false;
+                    addLog(`❌ #${i + 1}: ОШИБКА — ${error.message}`, 'error');
+                }
+
+                renderTestCard(i);
+                updateStats();
+                if (i < testResults.length - 1) await sleep(500);
+            }
+
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            addLog('🏁 Завершено');
+        }
+
+        function stopTests() { shouldStop = true; }
+        function resetTests() {
+            if (isRunning) return;
+            init();
+            document.getElementById('logEntries').innerHTML = '';
+            addLog('🔄 Сброшено');
+        }
+
+        function validateAnswer(test, response) {
+            if (response.error) return { passed: false, reason: `Ошибка: ${response.error}` };
+            if (test.expect_empty) {
+                if (response.data && response.data.count === 0) return { passed: true, reason: 'Пустой — ожидаемо' };
+                if ((response.answer || '').includes('не найдено')) return { passed: true, reason: 'Нет данных — ок' };
+            }
+            if (response.data && response.data.count > 0) {
+                if (test.expected_count != null && response.data.count !== test.expected_count) {
+                    return { passed: false, reason: `Записей: ${response.data.count} (ожидалось ${test.expected_count})` };
+                }
+                return { passed: true, reason: `Данные: ${response.data.count} записей` };
+            }
+            return { passed: false, reason: 'Нет данных' };
+        }
+
+        function renderResults() {
+            document.getElementById('resultsList').innerHTML = testResults.map((_, i) => renderCardHTML(i)).join('');
+        }
+        function renderTestCard(i) {
+            const el = document.getElementById(`test-card-${i}`);
+            if (el) el.outerHTML = renderCardHTML(i);
+        }
+
+        function renderCardHTML(i) {
+            const t = testResults[i];
+            const levelNames = { 1: 'Простой', 2: 'Средний', 3: 'Сложный', 4: 'Очень сложный' };
+            let icon = '⏳';
+            if (t.status === 'passed') icon = '✅';
+            else if (t.status === 'failed') icon = '❌';
+            else if (t.status === 'running') icon = '🔄';
+
+            // SQL блок
+            let sqlHTML = '';
+            if (t.sql !== null) {
+                const cls = t.sqlPassed ? 'sql-block sql-match' : 'sql-block sql-mismatch';
+                const vrCls = t.sqlPassed ? 'vr-passed' : 'vr-failed';
+                const vrIcon = t.sqlPassed ? '✅' : '❌';
+                const vrLabel = t.sqlPassed ? 'Семантика OK' : 'Не совпал';
+                sqlHTML = `
+                    <div class="detail-section">
+                        <h4>SQL-запрос <span class="validation-result ${vrCls}">${vrIcon} ${vrLabel}</span></h4>
+                        <div class="${cls}">${escHtml(t.sql || '—')}</div>
+                        <p style="margin-top:6px;font-size:12px;color:#6b7280">📊 ${escHtml(t.sqlReason)}</p>
+                    </div>
+                `;
+
+                // Сравнение результатов
+                if (t.sqlActual && t.sqlExpected) {
+                    sqlHTML += `
+                        <div class="detail-section">
+                            <h4>📊 Сравнение результатов</h4>
+                            <div class="comparison-grid">
+                                <div class="comparison-col">
+                                    <h5>Сгенерированный SQL (${t.sqlActual.count} строк)</h5>
+                                    <div class="mini-table">${renderMiniTable(t.sqlActual)}</div>
+                                </div>
+                                <div class="comparison-col">
+                                    <h5>Эталонный SQL (${t.sqlExpected.count} строк)</h5>
+                                    <div class="mini-table">${renderMiniTable(t.sqlExpected)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Ответ
+            let ansHTML = '';
+            if (t.answer !== null) {
+                const vrCls = t.answerPassed ? 'vr-passed' : 'vr-failed';
+                const vrIcon = t.answerPassed ? '✅' : '❌';
+                ansHTML = `
+                    <div class="detail-section">
+                        <h4>Ответ ассистента <span class="validation-result ${vrCls}">${vrIcon} ${t.answerReason}</span></h4>
+                        <div class="answer-block">${fmtMd(t.answer || '—')}</div>
+                        ${t.data ? `<p style="font-size:12px;color:#6b7280;margin-top:6px">Записей: ${t.data.count} | Колонки: ${t.data.columns.join(', ')}</p>` : ''}
+                    </div>
+                `;
+            }
+
+            let errHTML = '';
+            if (t.errorMessage) {
+                errHTML = `<div class="detail-section"><h4>❌ Ошибка</h4><div class="answer-block" style="background:#fee2e2;color:#991b1b">${escHtml(t.errorMessage)}</div></div>`;
+            }
+
+            const ovCls = t.overall ? 'overall-passed' : 'overall-failed';
+            const ovTxt = t.overall ? '✅ ПРОЙДЕН' : '❌ ПРОВАЛЕН';
+
+            return `
+                <div class="test-card status-${t.status}" id="test-card-${i}" data-status="${t.status}">
+                    <div class="test-header" onclick="toggleTestCard(${i})">
+                        <div class="test-status-icon">${icon}</div>
+                        <div class="test-info">
+                            <div class="test-number">Тест #${i + 1}</div>
+                            <div class="test-question">${escHtml(t.question)}</div>
+                            <span class="test-level level-${t.level}">${levelNames[t.level]}</span>
+                            ${t.overall !== null ? `<span class="overall-badge ${ovCls}">${ovTxt}</span>` : ''}
+                        </div>
+                        <div class="test-duration">${t.duration > 0 ? t.duration + 'мс' : ''}</div>
+                    </div>
+                    <div class="test-details">
+                        ${sqlHTML}
+                        ${ansHTML}
+                        ${errHTML}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMiniTable(result) {
+            if (result.error) return `<div style="color:#ef4444;font-size:11px">${escHtml(result.error)}</div>`;
+            if (!result.rows || result.rows.length === 0) return '<div style="color:#6b7280;font-size:11px">Нет данных</div>';
+            const cols = result.columns || [];
+            let h = '<table><tr>' + cols.map(c => `<th>${escHtml(c)}</th>`).join('') + '</tr>';
+            result.rows.slice(0, 5).forEach(row => {
+                h += '<tr>' + cols.map(c => `<td>${escHtml(String(row[c] ?? ''))}</td>`).join('') + '</tr>';
+            });
+            h += '</table>';
+            if (result.count > 5) h += `<div style="font-size:10px;color:#9ca3af;margin-top:4px">... ещё ${result.count - 5} строк</div>`;
+            return h;
+        }
+
+        function toggleTestCard(i) { document.getElementById(`test-card-${i}`).classList.toggle('expanded'); }
+
+        function updateStats() {
+            const total = testResults.length;
+            const passed = testResults.filter(t => t.status === 'passed').length;
+            const failed = testResults.filter(t => t.status === 'failed').length;
+            const pending = testResults.filter(t => t.status === 'pending' || t.status === 'running').length;
+            const completed = passed + failed;
+            const pct = completed > 0 ? Math.round(passed / completed * 100) : 0;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statPassed').textContent = passed;
+            document.getElementById('statFailed').textContent = failed;
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statPercent').textContent = pct + '%';
+
+            const pp = total > 0 ? Math.round(completed / total * 100) : 0;
+            document.getElementById('progressText').textContent = `${completed} / ${total}`;
+            document.getElementById('progressPercent').textContent = pp + '%';
+            document.getElementById('progressFill').style.width = pp + '%';
+        }
+
+        function setFilter(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.test-card').forEach(card => {
+                card.style.display = (filter === 'all' || card.dataset.status === filter) ? '' : 'none';
+            });
+        }
+
+        function exportResults() {
+            const report = {
+                date: new Date().toISOString(),
+                total: testResults.length,
+                passed: testResults.filter(t => t.status === 'passed').length,
+                failed: testResults.filter(t => t.status === 'failed').length,
+                percent: Math.round(testResults.filter(t => t.status === 'passed').length / testResults.length * 100) + '%',
+                validation_method: 'semantic (result comparison)',
+                tests: testResults.map(t => ({
+                    question: t.question,
+                    status: t.status,
+                    duration_ms: t.duration,
+                    sql_passed: t.sqlPassed,
+                    sql_reason: t.sqlReason,
+                    answer_passed: t.answerPassed,
+                    answer_reason: t.answerReason,
+                    actual_sql: t.sql,
+                    expected_sql: t.expected_sql,
+                    error: t.errorMessage
+                }))
+            };
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `test_report_${Date.now()}.json`;
+            a.click();
+        }
+
+        function addLog(msg, type = '') {
+            const log = document.getElementById('logEntries');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type ? 'log-' + type : ''}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function fmtMd(t) {
+            let h = escHtml(t);
+            h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            h = h.replace(/\n/g, '<br>');
+            return h;
+        }
+
+        init();
+    </script>
+</body>
+</html>

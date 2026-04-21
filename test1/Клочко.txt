@@ -1,0 +1,507 @@
+﻿Структура БД (персонал)
+    1) hr-category
+        a. id – integer [PK] (идентификатор)
+        b. name – character varying (255) (наименование)
+    2) hr_dept – (подразделение и участки из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. name – character varying (255) (наименование цеха участка)
+        c. parent_id – integer (идентификатор родительского цеха)
+        d. integration_id - character varying (255) (интеграционный идентификатор)
+        e. description – text (описание)
+        f. type_id – integer  (не используется)
+        g. issendnotification – integer (не используется)
+        h. ordinal_index – integer (не используется)
+        i. isusedetailservice – integer (не используется)
+        j. costperhourofwork – numeric (18,2) (не используется)
+        k. isdeleted – integer (не используется)
+        l. level – integer (не используется)
+        m. group_name - character varying (50) (не используется)
+        n. area_name - character varying (50) (не используется)
+        o. root_name - character varying (50) (не используется)
+        p. root_num – integer (номер корневого цеха)
+        q. parent_integration_id - character varying (255) (идентификатор родительского цеха)
+    3) hr_dept_staff_turnover_rat
+        a. id – integer [PK]
+        b. hr_dept – integer
+        c. quarter – integer
+        d. lower_rate – real
+        e. upper_rate – real
+    4) hr_dept_x
+        a. id – integer [PK]
+        b. name - character varying (255)
+        c. parent_id – integer
+        d. integration_id - character varying (255)
+        e. description – text
+        f. type_id – integer
+        g. isusedetailservice – integer
+        h. ordinal_index – integer
+        i. isusedetailservice – integer
+        j. costperhourofwork – numeric (18,2)
+        k. isdeleted – integer
+        l. level – integer
+        m. group_name - character varying (50)
+        n. area_name - character varying (50)
+        o. root_name - character varying (50)
+        p. root_num – integer
+        q. parent_integration_id - character varying (255)
+    5) hr_k801_vacation_schedule
+        a. id – integer [PK]
+        b. smart_card_code – integer
+        c. k801_date_begin – timestamp without time zone
+        d. k801_date_end – timestamp without time zone
+        e. k801_days – integer
+    6) hr_number_personnel (количество работников из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. dt_day – timestamp without time zone (дата)
+        c. hr_dept_id – integer (идентификатор подразделения)
+        d. dept_num – integer (идентификатор цеха)
+        e. count_personnel – integer (количество работников)
+        f. count_personnel_out – integer (количество уволившихся работников (НЕ ОБНОВЛЯЕТСЯ))
+        g. ssch – integer
+        h. od_category – integer
+    7) hr_prof 
+        a. id – integer [PK]
+        b. stat – integer
+        c. dept_num – integer
+        d. nza - character varying (255)
+        e. nomop - character varying (255)
+        f. kd6 – integer
+        g. kodop – integer
+        h. datd - timestamp without time zone
+        i. datv - timestamp without time zone
+        j. id_prof – integer
+        k. text1 - character varying (255)
+        l. text2 - character varying (255)
+    8) hr_time_sheet (детализированный журнал трудозатрат по работникам из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. dt_day - timestamp without time zone (дата трудозатрат)
+        c. hr_worker_id – integer (ссылка на таблицу работников)
+        d. hr_time_sheet_type_id – integer (ссылка на тип трудозатрат)
+        e. time – numeric (5,2) (время трудозатрат)
+        f. rep_daily_worker_analytic_id – integer (ссылка на составную таблицу аналитики по работникам)
+        g. k801_out – integer
+    9) hr_time_sheet_type (типы трудозатрат полученные из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. name - character varying (255) (наименование)
+    10) hr_transfers_personnel (кадровые перемещения из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. unique_code – integer (уникальный шестизначный код)
+        c. hr_dept_id – integer (код подразделения)
+        d. dept_num – integer (цех)
+        e. tab_num – integer (табельный)
+        f. id_prof – integer (id должности)
+        g. category - character varying (255) (категория)
+        h. dt_accept - timestamp without time zone (дата приёма(перевода) на работу)
+        i. dt_fired - timestamp without time zone (дата увольнения(перевода))
+        j. is_type – integer (тип перемещия(перевод или увольнения))
+        k. apprentice - character varying (255) (ученик или нет)
+        l. dismissal_ground - character varying (255) (основание увольнения)
+        m. dismissal_ground_hr - character varying (255) (причина увольнения по мнению HR)
+        n. dismissal_reason_boss - character varying (255) (причина увольнения по мнению руководителя)
+        o. dismissal_reason_comment - character varying (255) (комментарий по причине увольнения)
+    11) hr_vacation_analytic
+        a. id – integer [PK]
+        b. dt_day - timestamp without time zone
+        c. hr_dept – integer
+        d. hr_dept_id – integer
+        e. k801_time_count – integer
+        f. hr_time_count – integer
+    12) hr_vacation_schedule
+        a. id – integer [PK]
+        b. smart_card_code – integer
+        c. hr_date_begin - timestamp without time zone
+        d. hr_date_end - timestamp without time zone
+        e. hr_days – integer
+    13) hr_walking_info
+        a. id – integer [PK]
+        b. id_worker – integer
+        c. in_day - timestamp without time zone
+        d. out_day - timestamp without time zone
+        e. hours_count – numeric (5,2)
+    14) hr_work_position (перечень видов должностей из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. name - character varying (255) (наименование должности)
+    15) hr_worker (работники из 1С ЗУП)
+        a. id – integer [PK] (идентификатор)
+        b. prof_name - character varying (255) (наименование профессии)
+        c. workerroleid – integer (не используется)
+        d. phone - character varying (255) (телефон)
+        e. hr_dept_id – integer (идентификатор подразделения)
+        f. personal_num - character varying (50) (табельный номер)
+        g. name - character varying (50) (имя)
+        h. surname - character varying (50) (фамилия)
+        i. patronymic - character varying (50) (отчество)
+        j. email - character varying (255) (почта)
+        k. integration_id - character varying (255) (интеграционный идентификатор)
+        l. rfid_num - character varying (10) (не используется)
+        m. dt_accept - timestamp without time zone (дата приёма на работу)
+        n. dt_fired - timestamp without time zone (дата увольнения)
+        o. smart_card_code – integer (уникальный шестизначный код сотрудника)
+        p. description – text (не используется)
+        q. discharge – integer (не используется)
+        r. experiens – integer (не используется) 
+        s. payment_time_type_id – integer (не используется)
+        t. is_deleted – integer (уволен или нет)
+        u. dept_num – integer (цех)
+        v. prof_group - character varying (50) (группа профессии)
+        w. status - character (50) (статус)
+        x. _timepererabstatus – numeric (18,1) (не используется)
+        y. dismissal_ground - character varying (255) (причина увольнения)
+        z. apprentice_category – integer (ученик или нет)
+        aa. id_category – integer (код категории сотрудника)
+    16) hr_worker_fired_dept (данные по увольнениям по месяцам)
+        a. id – integer [PK] (идентификатор)
+        b. dt_day - timestamp without time zone ()
+        c. hr_dept_id – integer (идентификатор подразделения)
+        d. dept_num – integer (идентификатор цеха)
+        e. begin_month_num – integer (количество работников на начало месяца)
+        f. end_month_num – integer (количество работников на конец месяца)
+        g. worker_fired_num – integer (количество уволившихся работников)
+        h. average_headcount_perscent – real (текучесть персонала)
+        i. ssch – integer (ССЧ)
+        j. worker_fired_num_ssch – integer 
+        k. quarter – integer
+        l. ssch_plan – integer
+    17) hr_worker_raw
+        a. id – integer [PK]
+        b. prof_name - character varying (255)
+        c. workerroleid – integer
+        d. phone - character varying (255)
+        e. hr_depr_id – integer
+        f. personal_num - character varying (50)
+        g. name - character varying (50)
+        h. surname - character varying (50)
+        i. patronymic - character varying (50)
+        j. email - character varying (255)
+        k. integration_id - character varying (255)
+        l. rfid_num - character varying (10)
+        m. dt_accept - timestamp without time zone
+        n. dt_fired - timestamp without time zone
+        o. smart_card_code - character varying (90)
+        p. description – text
+        q. discharge – integer
+        r. experiens – integer 
+        s. payment_time_type_id – integer
+        t. is_deleted – integer
+        u. dept_num – integer
+        v. prof_group - character varying (50)
+        w. status - character (90)
+        x. _timepererabstatus – numeric (18,1)
+    18) rep_daily_worker_analytic
+        a. id – integer [PK]
+        b. dt_day – date
+        c. hr_worker_id – integer
+        d. hr_work_position_id – integer
+        e. dept_num – integer
+        f. manufactured_parts_log_count – bigint
+        g. manufactured_parts_log_plan_time – numeric
+        h. manufactured_parts_log_fact_time – numeric
+        i. work_time – numeric
+        j. paid_not_working_time – numeric
+        k. not_working_time – numeric
+        l. overtime_without_extra_paid – numeric
+        m. work_overtime – numeric
+        n. absence_from_work_time – numeric
+        o. day_off_time – numeric
+        p. hr_dept_id – integer
+        q. downtime – numeric
+        r. fond – numeric
+        s. status - character varying (255)
+        t. unplanned_losses – numeric
+    19) rep_daily_worker_analytic_month
+        a. id – integer [PK]
+        b. dt_day – date
+        c. hr_worker_id – integer
+        d. hr_work_position_id – integer
+        e. dept_num – integer
+        f. manufactured_parts_log_count – bigint
+        g. manufactured_parts_log_plan_time – numeric
+        h. manufactured_parts_log_fact_time – numeric
+        i. work_time – numeric
+        j. paid_not_working_time – numeric
+        k. not_working_time – numeric
+        l. overtime_without_extra_paid – numeric
+        m. work_overtime – numeric
+        n. work_overtime_1 – numeric
+        o. work_overtime1_2 – numeric
+        p. work_overtime2_4 – numeric
+        q. work_overtime4_ – numeric
+        r. absence_from_work_time – numeric
+        s. day_off_time – numeric
+        t. hr_dept_id – integer
+        u. downtime – numeric
+        v. fond – numeric
+        w. status - character varying (255)
+        x. kvn - numeric
+        y. unplanned_losses – numeric
+        z. time_productivity – numeric
+    20) rep_main_analitic
+        a. id – integer [PK]
+        b. dept_num – integer
+        c. dt_of_month - timestamp without time zone
+        d. hr_fund_time – numeric (18,4)
+        e. hr_lose_time - numeric (18,4)
+        f. hr_people_count - numeric (18,4)
+        g. mdc_machine_load_time - numeric (18,4)
+        h. mdc_machine_prepare_time - numeric (18,4)
+        i. mdc_machine_org_time - numeric (18,4)
+        j. mdc_machine_break_time - numeric (18,4)
+        k. mdc_machine_non_reglament - numeric (18,4)
+        l. mdc_machine_fund - numeric (18,4)
+        m. mdc_machine_fund_24 - numeric (18,4)
+        n. qa_defective_part_count - numeric (18,4)
+        o. qa_request_changes_tp - numeric (18,4)
+        p. qa_apply_changes - numeric (18,4)
+        q. plan_nomenclature_plan_rows_count - numeric (18,4)
+        r. plan_parts_count - numeric (18,4)
+        s. plan_time_count - numeric (18,4)
+        t. mes_launch_nomenclature_plan_count - numeric (18,4)
+        u. mes_finish_nomenclature_plan_count - numeric (18,4)
+        v. mes_fact_time - numeric (18,4)
+        w. mes_count_completed_parts - numeric (18,4)
+        x. mes_manufactured_parts_time_fact - numeric (18,4)
+        y. mes_manufactured_parts_time_plan - numeric (18,4)
+        z. irk_sto_supply - numeric (18,4)
+        aa. material_supply - numeric (18,4)
+        bb. tare_supply - numeric (18,4)
+        cc. qa_main_percent – double precision
+        dd. qa_defective_cost - double precision
+        ee. hr_overtime - double precision
+        ff. mdc_machine_off_time - numeric (18,4)
+        gg. qa_otk_first_control - double precision
+        hh. mes_part_move_done_count – integer
+        ii. qa_count_discrepancy – integer
+        jj. qa_technological_needs_parts – integer
+        kk. qa_back_to_dept_count – integer
+        ll. parties_submitted – integer
+        mm. parties_rejected – integer
+        nn. parts_submitted – integer
+        oo. parts_rejected – integer
+        pp. deviation_percentage – numeric
+        qq. lesion_price_defect – numeric
+        rr. cost_price_tp – numeric
+        ss. limit_defect – numeric
+        tt. deviation_limit – numeric
+        uu. plan_product_sh – numeric
+        vv. fact_product_sh – numeric
+        ww. staff_turnover – numeric (12,5)
+        xx. vypusk - numeric (12,5)
+        yy. zapusk - numeric (12,5)
+        zz. limit_descrepancy - numeric 
+        aaa. aside_prc_input – numeric
+        bbb. aside_prc_output – numeric
+        ccc. vypusk_cpk – numeric
+        ddd. hr_worker_count – integer
+        eee. hr_people_count_plan – integer
+        fff. hr_worker_count_plan - integer 
+
+структура БД (общая)
+    1) ＿schema_agreements
+    2) dept
+    3) _rnd
+    4) _smelting_operation_log
+    5) _tmp_ppn_rnk
+    6) del_tp_assembly_unit_specification
+    7) directus_activity
+    8) directus_collections
+    9) directus_dashboards
+    10) directus_fields
+    11) directus_files
+    12) directus_flows
+    13) directus_folders
+    14) directus_migrations
+    15) directus_notifications
+    16) directus_operations
+    17) directus_panels
+    18) directus_permissions
+    19) directus_presets
+    20) directus_relations
+    21) directus_revisions
+    22) directus_roles
+    23) directus_sessions
+    24) directus_settings
+    25) directus_shares
+    26) directus_users
+    27) directus_webhooks
+    28) gost_tool
+    29) gost_tool_table
+    30) hr_category
+    31) hr_dept
+    32) hr_dept_staff_turnover_rate
+    33) hr_dept_x
+    34) hr_k801_vacation_schedule
+    35) hr_number_personnel
+    36) hr_prof
+    37) hr_time_sheet
+    38) hr_time_sheet_type
+    39) hr_transfers_personnel
+    40) hr_vacation_analytic
+    41) hr_vacation_schedule
+    42) hr_walking_info
+    43) hr_work_position
+    44) hr_worker
+    45) hr_worker_fired_dept
+    46) hr_worker_raw
+    47) irk_doc_action
+    48) irk_doc_state
+    49) irk_doc_transition
+    50) irk_doc_type
+    51) irk_document
+    52) irk_group
+    53) irk_mark_tool
+    54) irk_stock_keeping_unit
+    55) irk_tool
+    56) irk_warehouse
+    57) irk_warehouse_place
+    58) irk_worker
+    59) mat_analog_material
+    60) mat_availability_materials
+    61) mat_cutting_sheet
+    62) mat_detail_in_cutting_sheet
+    63) mat_main_material
+    64) mat_material_warehouse
+    65) mat_support_material
+    66) mat_support_material_in_operation
+    67) mdc_dept
+    68) mdc_group_param
+    69) mdc_machine
+    70) mdc_machine_param
+    71) mdc_machine_param_in_group
+    72) mdc_monitoring_value_129
+    73) mdc_operating_program_assembly_unit
+    74) mdc_operating_program_execution_log
+    75) mdc_param_in_machine
+    76) mdc_shedule_base
+    77) mdc_shedule_base_item
+    78) mdc_shedule_meta
+    79) mdc_technology_control_border
+    80) mdc_technology_control_log
+    81) mdc_technology_control_setting
+    82) mdc_technology_control_setting_group
+    83) mdc_technology_control_setting_in_machine
+    84) mdc_technology_control_type
+    85) mes_completed_assembly_unit
+    86) mes event
+    87) mes_event_assembly_unit
+    88) mes_event files
+    89) mes_event_nomenclature_plan
+    90) mes_launch_assembly_unit
+    91) mes_launch_log
+    92) mes_leftover_assembly_unit
+    93) mes_manufactured_parts_log
+    94) mes_nomenclature_production_plan
+    95) mes_nomenclature_production_plan_old
+    96) mes_nomenclature_production_plan_old2
+    97) mes_nomenclature_production_plan_part
+    98) mes_operational_standards_for_equipment
+    99) mes_out_of_nomenclature_plan
+    100) mes_part_made_total_log
+    101) mes part move
+    102) mes_plan_vypusk
+    103) mes_plan_vypusk_sh
+    104) mes plan_zapusk
+    105) mes_plan_zapusk_category
+    106) mes planned_requirement_nomenclature
+    107) mes_planned_requirement_nomenclature_old
+    108) mes_ppn_by_directions
+    109) mes_production_task_operation
+    110) mes_production_task_person
+    111) mes_restart
+    112) mes_route_sheet
+    113) mes_route_sheet_technology_operation
+    114) mes_warehouse_billet
+    115) mr_class
+    116) mr_defect
+    117) mr_group
+    118) mr_repair_event
+    119) mr_repair_request
+    120) mr_type_defect
+    121) mr_type_group_defect
+    122) mr_type_repair
+    123) narid_kd6
+    124) ppn_contracts
+    125) qa_consumption_of_delayed_parts
+    126) qa_defective_part_log
+    127) qa_defective_part_reason
+    128) qa_delayed_parts
+    129) qa_deviation
+    130) qa_discrepancy_log
+    131) qa_ktd_causer
+    132) qa_ktd_defect_reason
+    133) qa_ktd_log
+    134) qa_ktd_log_files
+    135) qa_ktd_log_qa_ktd_worker
+    136) qa_ktd_type_discrepancy
+    137) qa_ktd_worker
+    138) qa_link_correction
+    139) qa_link_discrepancy
+    140) qa_link_reason
+    141) qa_permissions_deviations_log
+    142) qa_production_culture
+    143) qa_reason_discrepancy
+    144) qa_tdk_critery_type
+    145) qa_type_discrepancy
+    146) qaktdloghistory
+    147) rep_1867
+    148) rep_assembly_aside_analitic
+    149) rep_assembly_aside_current_analitic
+    150) rep_assembly_unit_analitic
+    151) rep_availability_tools
+    152) rep_daily_worker_analytic
+    153) rep_daily_worker_analytic_month
+    154) rep_defining_machine_odk
+    155) rep_defining_machine_odk_month
+    156) rep_grafic_saturn
+    157) rep_machine_downtime
+    158) rep_machine_grafic_saturn
+    159) rep_machine_oee
+    160) rep_machine_oee_month
+    161) rep_machine_production_control
+    162) rep_main_analitic
+    163) rep_monitoring_by_priority
+    164) rep_production_output
+    165) rep_productivity_index
+    166) rep_release_plan_indicators
+    167) rep_release_plan_indicators_day
+    168) rep_report_standart_hour
+    169) rep_worker_analitic
+    170) tara_accounting
+    171) tara_analitic
+    172) tara_assembly_unit_in_containers
+    173) tara_character_sets
+    174) tara_characters
+    175) tara_log_used_containers
+    176) tara_moving
+    177) tara_object_types
+    178) tara_objects
+    179) tara_passes
+    180) tara_reader_status
+    181) tara_reader_status_journal
+    182) tara_readers
+    183) tara_ref_containers
+    184) tara_route_moving
+    185) tara_tags
+    186) tara zones
+    187) temp mes launches
+    188) test
+    189) test3
+    190) test3_files
+    191) test_ceh
+    192) tp_assembly_unit
+    193) tp_assembly_unit_billet
+    194) tp_assembly_unit_specification
+    195) tp_equipment
+    196) tp_technological_process
+    197) tp_technological_process_in_assembly_unit
+    198) tp_technological_process_operation
+    199) tp_technological_process_operation_actual
+    200) tp_technology_operation
+    201) tp_technology_operation_step
+    202) tp_technology_operation_type
+    203) p_tool
+    204) tp_tool_category
+    205) tp_tool_group
+    206) tp_tool_in_oper
+    207) tp_tool_name
+    208) view_planned_requirement_nomenclature
+    209) view_usage_rigging

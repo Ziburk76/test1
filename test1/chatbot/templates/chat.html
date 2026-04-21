@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИИ-ассистент завода</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'chat.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🏭 Завод Ассистент</h2>
+                <p>ИИ-ассистент по данным производства</p>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Подключение...</span>
+                </div>
+
+                <div class="help-section">
+                    <h3>Примеры вопросов</h3>
+                    <ul class="example-questions">
+                        <li>Какие станки есть на заводе?</li>
+                        <li>Какое время простоев станков?</li>
+                        <li>Кто работал на станке?</li>
+                        <li>Сколько деталей изготовлено?</li>
+                        <li>Покажи аналитику по цеху</li>
+                        <li>Какой OEE у станков?</li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-actions">
+                    <button class="btn btn-secondary" onclick="resetChat()">🔄 Новый чат</button>
+                    <button class="btn btn-secondary" onclick="toggleSqlVisibility()">📊 Показать SQL</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+            <header class="chat-header">
+                <h1>💬 Чат с ИИ-ассистентом</h1>
+                <p>Задайте вопрос</p>
+            </header>
+
+            <div class="messages" id="messages">
+                <div class="message bot-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <p>Здравствуйте! Я — ИИ-ассистент производственной базы данных завода.</p>
+                        <p>Я могу ответить на вопросы о:</p>
+                        <ul>
+                            <li>🔧 <strong>Оборудовании</strong> — станки, простои, загрузка, расписания</li>
+                            <li>📈 <strong>Аналитике</strong> — производительность, OEE, статистика</li>
+                            <li>⚙️ <strong>Техпроцессах</strong> — операции, детали, программы</li>
+                        </ul>
+                        <p>Задайте ваш вопрос!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <form id="chatForm" class="input-form" onsubmit="sendMessage(event)">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Введите ваш вопрос..."
+                        autocomplete="off"
+                        required
+                    >
+                    <button type="submit" class="btn btn-primary" id="sendButton">
+                        <span id="sendButtonText">➤</span>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- SQL Modal -->
+    <div class="modal" id="sqlModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📊 SQL-запрос</h3>
+                <button class="close-btn" onclick="closeSqlModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <pre id="sqlContent" class="sql-code"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = 'session_' + Date.now();
+        let showSql = false;
+        let isProcessing = false;
+
+        // Проверка подключения
+        async function checkConnection() {
+            try {
+                const response = await fetch('/api/check/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('connectionStatus');
+                if (data.ollama_connected) {
+                    statusEl.className = 'connection-status connected';
+                    statusEl.querySelector('.status-text').textContent = 'Ollama подключена';
+                } else {
+                    statusEl.className = 'connection-status disconnected';
+                    statusEl.querySelector('.status-text').textContent = 'Ollama не подключена';
+                }
+            } catch (e) {
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.className = 'connection-status disconnected';
+                statusEl.querySelector('.status-text').textContent = 'Ошибка подключения';
+            }
+        }
+
+        // Отправка сообщения
+        async function sendMessage(event) {
+            event.preventDefault();
+            
+            if (isProcessing) return;
+            
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            // Очищаем поле ввода
+            input.value = '';
+            
+            // Добавляем сообщение пользователя
+            addUserMessage(message);
+            
+            // Блокируем интерфейс
+            isProcessing = true;
+            document.getElementById('sendButton').disabled = true;
+            
+            // Добавляем индикатор загрузки
+            const loadingMsg = addLoadingMessage();
+            
+            try {
+                const response = await fetch('/api/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Удаляем индикатор загрузки
+                loadingMsg.remove();
+                
+                if (data.error) {
+                    addBotMessage(`❌ ${data.error}`, data.sql);
+                } else {
+                    addBotMessage(data.answer, data.sql, data.data);
+                }
+                
+            } catch (error) {
+                loadingMsg.remove();
+                addBotMessage('❌ Ошибка соединения с сервером.');
+            } finally {
+                isProcessing = false;
+                document.getElementById('sendButton').disabled = false;
+                input.focus();
+            }
+        }
+
+        // Добавить сообщение пользователя
+        function addUserMessage(text) {
+            const messagesEl = document.getElementById('messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = 'message user-message';
+            msgEl.innerHTML = `
+                <div class="message-content">
+                    <p>${escapeHtml(text)}</p>
+                </div>
+                <div class="message-avatar">👤</div>
+            `;
+            messagesEl.appendChild(msgEl);
+            scrollToBottom();
+        }
+
+        // Добавить сообщение бота
+        function addBotMessage(text, sql = null, data = null) {
+            const messagesEl = document.getElementById('messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = 'message bot-message';
+            
+            let html = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="bot-answer">${formatMarkdown(text)}</div>
+            `;
+            
+            if (sql && showSql) {
+                html += `
+                    <details class="sql-details">
+                        <summary>📋 Показать SQL-запрос</summary>
+                        <pre class="sql-code">${escapeHtml(sql)}</pre>
+                    </details>
+                `;
+            }
+            
+            if (data && data.rows && data.rows.length > 0) {
+                html += `<div class="data-table-container">${renderTable(data)}</div>`;
+            }
+            
+            html += `</div>`;
+            msgEl.innerHTML = html;
+            messagesEl.appendChild(msgEl);
+            scrollToBottom();
+        }
+
+        // Индикатор загрузки
+        function addLoadingMessage() {
+            const messagesEl = document.getElementById('messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = 'message bot-message loading';
+            msgEl.id = 'loadingMessage';
+            msgEl.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            messagesEl.appendChild(msgEl);
+            scrollToBottom();
+            return msgEl;
+        }
+
+        // Отрисовка таблицы данных
+        function renderTable(data) {
+            if (!data.rows || data.rows.length === 0) return '';
+            
+            const columns = data.columns;
+            const rows = data.rows.slice(0, 50); // Максимум 50 строк
+            
+            let html = '<table class="data-table"><thead><tr>';
+            columns.forEach(col => {
+                html += `<th>${escapeHtml(col)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            rows.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const val = row[col];
+                    const displayVal = val !== null && val !== undefined ? escapeHtml(String(val)) : '-';
+                    html += `<td>${displayVal}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            
+            if (data.count > 50) {
+                html += `<p class="table-note">Показано 50 из ${data.count} записей</p>`;
+            }
+            
+            return html;
+        }
+
+        // Форматирование markdown (базовое)
+        function formatMarkdown(text) {
+            if (!text) return '';
+            
+            let html = escapeHtml(text);
+            
+            // Bold
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            // Code
+            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+            // Line breaks
+            html = html.replace(/\n/g, '<br>');
+            // Lists
+            html = html.replace(/• (.+?)(?=<br>|$)/g, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            
+            return html;
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Прокрутка вниз
+        function scrollToBottom() {
+            const messagesEl = document.getElementById('messages');
+            setTimeout(() => {
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }, 100);
+        }
+
+        // Сбросить чат
+        async function resetChat() {
+            if (confirm('Начать новый чат? История будет удалена.')) {
+                document.getElementById('messages').innerHTML = `
+                    <div class="message bot-message">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-content">
+                            <p>Чат начат заново. Задайте ваш вопрос!</p>
+                        </div>
+                    </div>
+                `;
+                
+                try {
+                    await fetch('/api/reset/', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({session_id: sessionId})
+                    });
+                } catch (e) {
+                    console.error('Failed to reset session:', e);
+                }
+            }
+        }
+
+        // Переключить видимость SQL
+        function toggleSqlVisibility() {
+            showSql = !showSql;
+            const btn = event.target;
+            btn.textContent = showSql ? '📊 Скрыть SQL' : '📊 Показать SQL';
+        }
+
+        // Закрыть SQL модал
+        function closeSqlModal() {
+            document.getElementById('sqlModal').style.display = 'none';
+        }
+
+        // Получить CSRF cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConnection();
+            document.getElementById('messageInput').focus();
+        });
+
+        // Enter для отправки
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(e);
+            }
+        });
+    </script>
+</body>
+</html>

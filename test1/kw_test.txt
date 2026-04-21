@@ -1,0 +1,29 @@
+Map keys: 64
+
+Q: простои станков
+  Tables (0): []
+  Keywords: []
+
+Q: Покажи простои станков
+  Tables (0): []
+  Keywords: []
+
+Q: Какие станки есть на заводе
+  Tables (0): []
+  Keywords: []
+
+Q: Кто работал на станках
+  Tables (0): []
+  Keywords: []
+
+Q: Покажи расписание работы станков
+  Tables (5): ['mdc_dept', 'mdc_machine', 'mdc_shedule_base', 'mdc_shedule_base_item', 'mdc_shedule_meta']
+  Keywords: ['"расписан" → [\'mdc_shedule_base\', \'mdc_shedule_base_item\', \'mdc_shedule_meta\', \'mdc_machine\']']
+
+Q: Покажи нарушения контроля
+  Tables (7): ['mdc_dept', 'mdc_group_param', 'mdc_machine', 'mdc_machine_param', 'mdc_param_in_machine', 'mdc_technology_control_log', 'mdc_technology_control_setting']
+  Keywords: ['"контрол" → [\'mdc_technology_control_setting\', \'mdc_technology_control_log\']', '"нарушен" → [\'mdc_technology_control_log\', \'mdc_param_in_machine\', \'mdc_machine\']']
+
+Q: аналитика по цеху
+  Tables (4): ['hr_dept', 'mdc_dept', 'mdc_machine', 'rep_main_analitic']
+  Keywords: ['"цех" → [\'mdc_machine\', \'mdc_dept\', \'hr_dept\']', '"аналитик" → [\'rep_main_analitic\', \'hr_dept\']']
