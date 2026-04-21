@@ -1,8 +1,6 @@
-"""
-Views для чат-бота ИИ-ассистента.
-"""
 import json
 import logging
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -203,7 +201,56 @@ def chat_api(request):
             })
 
         # Генерируем SQL
-        sql = text_to_sql.convert(message, history)
+        raw_sql = text_to_sql.convert(message, history)
+
+        # --- ПУНКТ 2: Умный парсинг ответа LLM ---
+        # Извлекаем чистый SQL из ответа модели (даже если он в тексте или markdown)
+        sql = extract_sql_from_response(raw_sql)
+        
+        if not sql:
+            answer = "Не удалось распознать SQL-запрос в ответе модели."
+            ChatMessage.objects.create(session=session, role='user', content=message)
+            ChatMessage.objects.create(session=session, role='assistant', content=answer)
+            return JsonResponse({
+                'answer': f"🤔 {answer}",
+                'sql': raw_sql,
+                'data': None,
+                'error': 'SQL parsing failed',
+                'session_id': session_id,
+            })
+
+        # --- ПУНКТ 1: Жесткая фильтрация SQL ---
+        # Проверка безопасности: разрешаем только SELECT
+        sql_upper = sql.upper().strip()
+        forbidden_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE']
+        for keyword in forbidden_keywords:
+            if keyword in sql_upper:
+                answer = f"⛔ Запрос содержит запрещённую операцию ({keyword}). Разрешены только SELECT-запросы."
+                ChatMessage.objects.create(session=session, role='user', content=message)
+                ChatMessage.objects.create(session=session, role='assistant', content=answer)
+                return JsonResponse({
+                    'answer': answer,
+                    'sql': sql,
+                    'data': None,
+                    'error': 'Forbidden SQL operation',
+                    'session_id': session_id,
+                })
+        
+        if not sql_upper.startswith('SELECT'):
+            answer = "⛔ Запрос должен начинаться с SELECT."
+            ChatMessage.objects.create(session=session, role='user', content=message)
+            ChatMessage.objects.create(session=session, role='assistant', content=answer)
+            return JsonResponse({
+                'answer': answer,
+                'sql': sql,
+                'data': None,
+                'error': 'Only SELECT allowed',
+                'session_id': session_id,
+            })
+
+        # Автоматически добавляем LIMIT 50, если его нет
+        if 'LIMIT' not in sql_upper:
+            sql = sql.rstrip(';') + ' LIMIT 50'
 
         if sql.upper().startswith('НЕВОЗМОЖНО'):
             # LLM не смогла составить запрос
@@ -222,17 +269,62 @@ def chat_api(request):
         # Выполняем SQL
         db_result = db_executor.execute(sql)
 
+        # --- ПУНКТ 3: Авто-исправление ошибок ---
         if not db_result['success']:
             error_msg = db_result.get('error', 'Неизвестная ошибка БД')
-            ChatMessage.objects.create(session=session, role='user', content=message)
-            ChatMessage.objects.create(session=session, role='assistant', content=f"Ошибка: {error_msg}")
-            return JsonResponse({
-                'answer': f"❌ {error_msg}",
-                'sql': sql,
-                'data': None,
-                'error': error_msg,
-                'session_id': session_id,
-            })
+            
+            # Попытка авто-исправления (один раз)
+            correction_prompt = (
+                f"Запрос не выполнился. Ошибка базы данных: {error_msg}. "
+                f"Исходный запрос: {sql}. "
+                f"Исправь SQL-запрос и верни ТОЛЬКО код SQL без объяснений."
+            )
+            corrected_sql = ollama_service.generate_sql(correction_prompt, history)
+            
+            # Парсим и проверяем исправленный запрос
+            corrected_sql = extract_sql_from_response(corrected_sql)
+            
+            if corrected_sql and 'LIMIT' not in corrected_sql.upper():
+                corrected_sql = corrected_sql.rstrip(';') + ' LIMIT 50'
+            
+            retry_result = None
+            if corrected_sql and corrected_sql != sql:
+                # Проверяем безопасность исправленного запроса
+                corrected_upper = corrected_sql.upper().strip()
+                is_safe = not any(k in corrected_upper for k in forbidden_keywords) and corrected_upper.startswith('SELECT')
+                if is_safe:
+                    retry_result = db_executor.execute(corrected_sql)
+            
+            if retry_result and retry_result['success']:
+                # Исправление успешно!
+                sql = corrected_sql
+                db_result = retry_result
+                answer = answer_generator.generate(message, sql, db_result)
+                ChatMessage.objects.create(session=session, role='user', content=message)
+                ChatMessage.objects.create(session=session, role='assistant', content=f"{answer}\n\n*(Запрос был автоматически исправлен)*")
+                return JsonResponse({
+                    'answer': answer,
+                    'sql': sql,
+                    'data': {
+                        'columns': db_result['columns'],
+                        'rows': db_result['rows'],
+                        'count': db_result['count'],
+                    },
+                    'error': None,
+                    'session_id': session_id,
+                })
+            else:
+                # Исправление не помогло или невозможно
+                answer = f"❌ Ошибка выполнения запроса: {error_msg}"
+                ChatMessage.objects.create(session=session, role='user', content=message)
+                ChatMessage.objects.create(session=session, role='assistant', content=answer)
+                return JsonResponse({
+                    'answer': answer,
+                    'sql': sql,
+                    'data': None,
+                    'error': error_msg,
+                    'session_id': session_id,
+                })
 
         # Генерируем понятный ответ
         answer = answer_generator.generate(message, sql, db_result)
@@ -258,6 +350,42 @@ def chat_api(request):
     except Exception as e:
         logger.error(f"Ошибка в chat_api view: {e}", exc_info=True)
         return JsonResponse({'error': f'Внутренняя ошибка сервера: {str(e)}'}, status=500)
+
+
+def extract_sql_from_response(response_text):
+    """
+    Извлекает чистый SQL-запрос из текста ответа LLM.
+    Ищет запрос внутри ```sql ... ``` или просто первый валидный SELECT.
+    """
+    if not response_text:
+        return None
+    
+    response_text = response_text.strip()
+    
+    # Если ответ начинается с явного маркера невозможности
+    if response_text.upper().startswith('НЕВОЗМОЖНО'):
+        return response_text
+    
+    # Паттерн 1: Поиск внутри ```sql ... ``` или ``` ... ```
+    code_block_pattern = r'```(?:sql)?\s*(.*?)\s*```'
+    matches = re.findall(code_block_pattern, response_text, re.IGNORECASE | re.DOTALL)
+    if matches:
+        sql = matches[0].strip()
+        # Убираем возможные лишние точки с запятой в конце
+        return sql.rstrip(';')
+    
+    # Паттерн 2: Поиск первого SELECT ... до точки с запятой или конца строки
+    select_pattern = r'(SELECT\s+.*?)(?:;|$)'
+    match = re.search(select_pattern, response_text, re.IGNORECASE | re.DOTALL)
+    if match:
+        return match.group(1).strip().rstrip(';')
+    
+    # Паттерн 3: Если текст просто похож на SQL (начинается с SELECT)
+    if response_text.upper().strip().startswith('SELECT'):
+        return response_text.strip().rstrip(';')
+    
+    # Ничего не найдено
+    return None
 
 
 @csrf_exempt
